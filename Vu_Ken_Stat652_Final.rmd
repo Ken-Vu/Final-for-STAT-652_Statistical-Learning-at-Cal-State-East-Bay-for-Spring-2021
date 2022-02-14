@@ -1,0 +1,89 @@
+---
+title: "Statistics 652 - Final"
+author: "Ken Vu"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+
+# Final
+
+For the *Ozone* data from the R package *mlbench* try the following machine learning prediction algorithm that is useful for feature selection.
+
+Read the paper [Feature Selection with the Boruta Package](https://www.jstatsoft.org/article/view/v036i11) and implement the algorithm.
+
+Which features are most important as determined by the Boruta RandomForest Algorithm?
+
+**Answers**:
+Based on the results of the Boruta RandomForest algorithm, we find that the most important features are V1, V4, V5, V6, V7, V8, V9, V10, V11, V12, and V13.
+
+# Code and Comments (Final):
+Get all of the libraries first
+```{r}
+library(mlbench)
+library(Boruta)
+set.seed(300)
+```
+
+## 1) Load the data set
+```{r}
+data(Ozone)
+data_raw <- Ozone
+```
+
+## 2) Explore the data set
+```{r}
+summary(data_raw)
+```
+
+### Investigate the missing values
+```{r}
+missing_values <- as.data.frame(sapply(data_raw, function(x) sum(is.na(x))))
+colnames(missing_values) <- c("Number of NAs")
+missing_values$freq <- round(missing_values[,c("Number of NAs")]/length(data_raw[,1]),3)
+
+# Get columns where 10% of data r less is NAs
+colnames_lessmiss <- rownames(missing_values[missing_values$freq <= 0.1,])
+missing_values[]
+```
+
+### See if you can mean impute for some of the variables
+```{r}
+# Mean impute for the columns with 10% or less data missing
+NA2mean <- function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))
+data_clean <- data_raw
+data_clean[,colnames_lessmiss] <- lapply(data_clean[,colnames_lessmiss], NA2mean)
+
+# Check the proportion of missing data to total row count again
+missing_values_imputed <- as.data.frame(sapply(data_clean, function(x) sum(is.na(x))))
+colnames(missing_values_imputed) <- c("Number of NAs")
+missing_values_imputed$freq <- round(missing_values_imputed[,c("Number of NAs")]/length(data_clean[,1]),3)
+missing_values_imputed
+```
+
+### Now, clean out the data of NAs
+```{r}
+data_clean <- na.omit(data_clean)
+```
+
+## 3) Train Boruta onto the data set.
+
+We limit max runs to 12 in case there are attributes with importance too close to MSZA that might make algorithm indecisive about which attributes to consider important.
+```{r}
+Boruta.Short <- Boruta(V4 ~ ., data = data_clean, doTrace = 2, ntree = 500, maxRuns=12)
+Boruta.Short
+```
+
+## 4) Now, try to do a tentative fix on the algorithm to sort out the tentative variables.
+```{r}
+Boruta.TentFix<- TentativeRoughFix(Boruta.Short)
+Boruta.TentFix
+```
+
+## 5) Plot the results of Boruta
+```{r}
+plot(Boruta.TentFix, las=2)
+```
+
